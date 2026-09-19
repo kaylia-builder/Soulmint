@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { createPublicClient, createWalletClient, custom, http, type EIP1193Provider } from "viem";
+import { createPublicClient, createWalletClient, custom, http, parseEventLogs, type EIP1193Provider } from "viem";
 import { avalancheFuji } from "viem/chains";
 import { ArrowRight, Bot, Copy, ExternalLink, Flame, LoaderCircle, MessageCircle, Send, Sparkles, Sprout, Wallet, Zap } from "lucide-react";
 import { toast } from "sonner";
@@ -36,6 +36,10 @@ function SoulArt({ type, name, seed, id, summons = 0, compact = false }: { type:
   const [a, b, ink] = PALETTES[familyOf(type)];
   const rings = Array.from({ length: 6 }, (_, i) => 66 + ((seed * (i + 3)) % 54));
   const stage = stageFor(summons).name;
+  const extrovert = type[0] === "E";
+  const intuitive = type[1] === "N";
+  const thinker = type[2] === "T";
+  const judging = type[3] === "J";
   return (
     <svg viewBox="0 0 560 680" role="img" aria-label={`${type} 人格图腾`} className="h-full w-full">
       <defs>
@@ -49,8 +53,22 @@ function SoulArt({ type, name, seed, id, summons = 0, compact = false }: { type:
       <g className="soul-rings">
         {rings.map((r, i) => <ellipse key={i} cx="280" cy="302" rx={r} ry={r * (0.42 + i * 0.05)} fill="none" stroke={i % 2 ? a : b} strokeWidth={i === 0 ? 4 : 2} opacity={0.88 - i * 0.1} transform={`rotate(${(seed + i * 37) % 180} 280 302)`} />)}
       </g>
-      <circle cx="280" cy="302" r="95" fill={`url(#core-${seed})`} opacity=".86" />
-      <circle cx="280" cy="302" r="16" fill="#fff" />
+      <g className="soul-avatar">
+        {extrovert
+          ? <path d="M280 142V104M164 190l-29-28M396 190l29-28M142 302h-40M418 302h40" stroke={a} strokeWidth="6" />
+          : <circle cx="280" cy="302" r="174" fill="none" stroke={a} strokeWidth="3" strokeDasharray="7 13" />}
+        {judging
+          ? <path d="m218 224 20-52 42 38 42-38 20 52" fill="none" stroke={b} strokeWidth="8" />
+          : <g fill={b}><circle cx="206" cy="220" r="8" /><circle cx="280" cy="178" r="8" /><circle cx="354" cy="220" r="8" /></g>}
+        {intuitive
+          ? <path d="M280 190 374 258 338 386 280 430 222 386 186 258Z" fill="#090c0d" stroke={a} strokeWidth="6" />
+          : <path d="M280 188c72 0 116 49 106 126-8 67-50 116-106 116s-98-49-106-116c-10-77 34-126 106-126Z" fill="#090c0d" stroke={a} strokeWidth="6" />}
+        {thinker
+          ? <path d="m218 298 45 13-45 13M342 298l-45 13 45 13" stroke={a} strokeWidth="9" fill="none" />
+          : <><circle cx="238" cy="312" r="15" fill={a} /><circle cx="322" cy="312" r="15" fill={a} /></>}
+        <path d="M245 364q35 24 70 0" fill="none" stroke={b} strokeWidth="7" />
+        <circle cx="280" cy="302" r="9" fill="#fff" opacity=".88" />
+      </g>
       <path d="M76 76H180M76 76V180M484 76H380M484 76V180M76 604H180M76 604V500M484 604H380M484 604V500" stroke={a} strokeWidth="3" />
       <text x="54" y="58" fill={a} fontSize="18" fontFamily="monospace">SOULMINT / {id ? `#${id}` : "GENESIS"}</text>
       <text x="280" y="550" fill="#fff" fontSize="64" fontWeight="800" textAnchor="middle" letterSpacing="9">{type}</text>
@@ -84,12 +102,14 @@ export default function Home() {
   const [chatInput, setChatInput] = useState("");
   const [minting, setMinting] = useState(false);
   const [replying, setReplying] = useState(false);
+  const [chainState, setChainState] = useState<"demo" | "loading" | "live" | "error">(CONTRACT_ADDRESS ? "loading" : "demo");
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const seed = useMemo(() => [...`${form.mbti}${form.name}${form.catchphrase}`].reduce((sum, char, i) => sum + char.charCodeAt(0) * (i + 7), 0), [form]);
   const chosenType = MBTI_TYPES.find((item) => item.code === form.mbti) ?? MBTI_TYPES[0];
 
   useEffect(() => {
+    if (CONTRACT_ADDRESS) { void loadChainSouls(); return; }
     const stored = localStorage.getItem("soulmint-souls");
     if (stored) {
       try { setSouls([...JSON.parse(stored), ...DEMO_SOULS]); } catch { /* keep demo data */ }
@@ -123,8 +143,33 @@ export default function Home() {
       const [address] = await wallet.requestAddresses();
       try { await wallet.switchChain({ id: avalancheFuji.id }); }
       catch { await wallet.addChain({ chain: avalancheFuji }); }
-      setAccount(address); toast.success("钱包已连接到 Avalanche Fuji"); return { wallet, address };
+      setAccount(address); toast.success("钱包已连接到 Avalanche Fuji");
+      if (CONTRACT_ADDRESS) void loadChainSouls(address);
+      return { wallet, address };
     } catch { toast.error("钱包连接已取消"); return undefined; }
+  }
+
+  async function loadChainSouls(activeAccount?: `0x${string}`) {
+    if (!CONTRACT_ADDRESS) return;
+    setChainState("loading");
+    try {
+      const total = await publicClient.readContract({ address: CONTRACT_ADDRESS, abi: soulmintAbi, functionName: "totalSupply" });
+      const count = Number(total);
+      const first = Math.max(1, count - 23);
+      const ids = Array.from({ length: Math.max(0, count - first + 1) }, (_, index) => first + index).reverse();
+      const chainSouls = await Promise.all(ids.map(async (id): Promise<Soul> => {
+        const [data, owner] = await Promise.all([
+          publicClient.readContract({ address: CONTRACT_ADDRESS, abi: soulmintAbi, functionName: "soulOf", args: [BigInt(id)] }),
+          publicClient.readContract({ address: CONTRACT_ADDRESS, abi: soulmintAbi, functionName: "ownerOf", args: [BigInt(id)] }),
+        ]);
+        const previousOwner = data.previousOwner === "0x0000000000000000000000000000000000000000" ? undefined : data.previousOwner;
+        return { id, mbti: data.mbti, name: data.soulName, catchphrase: data.catchphrase, backstory: data.backstory, summons: Number(data.summons), owner, previousOwner, transferCount: Number(data.transferCount), seed: Number(data.seed % 9_007_199_254_740_991n), mine: !!activeAccount && owner.toLowerCase() === activeAccount.toLowerCase(), onchain: true };
+      }));
+      setSouls(chainSouls); setChainState("live");
+    } catch {
+      setChainState("error");
+      toast.error("无法读取 Fuji 合约，请检查合约地址与网络");
+    }
   }
 
   async function mintSoul() {
@@ -136,8 +181,11 @@ export default function Home() {
       if (CONTRACT_ADDRESS) {
         const hash = await connection.wallet.writeContract({ address: CONTRACT_ADDRESS, abi: soulmintAbi, functionName: "mint", args: [form.mbti, form.name, form.catchphrase, form.backstory], value: 10_000_000_000_000_000n, account: connection.address, chain: avalancheFuji });
         toast.loading("灵魂正在 Fuji 链上凝结…", { id: "mint" });
-        await publicClient.waitForTransactionReceipt({ hash });
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        const minted = parseEventLogs({ abi: soulmintAbi, logs: receipt.logs, eventName: "SoulMinted" })[0];
         toast.success("铸魂完成，NFT 已进入你的钱包", { id: "mint" });
+        await loadChainSouls(connection.address);
+        if (minted) toast.info(`Soul #${minted.args.tokenId.toString()} 已写入 Fuji`);
       } else {
         const localSoul: Soul = { id: 1000 + Math.floor(Math.random() * 8000), mbti: form.mbti, name: form.name, catchphrase: form.catchphrase, backstory: form.backstory, summons: 0, owner: connection.address, transferCount: 0, seed, mine: true };
         const ownSouls = [localSoul, ...souls.filter((soul) => soul.mine)];
@@ -158,14 +206,19 @@ export default function Home() {
     event?.preventDefault();
     if (!selectedSoul || !chatInput.trim() || replying) return;
     const message = chatInput.trim();
-    const nextSoul = { ...selectedSoul, summons: selectedSoul.summons + 1 };
-    setSelectedSoul(nextSoul); setSouls((items) => items.map((item) => item.id === nextSoul.id ? nextSoul : item));
-    setMessages((items) => [...items, { role: "user", content: message }]); setChatInput(""); setReplying(true);
+    setReplying(true);
     try {
-      if (CONTRACT_ADDRESS && selectedSoul.mine && account && window.ethereum) {
-        const wallet = createWalletClient({ chain: avalancheFuji, transport: custom(window.ethereum) });
-        void wallet.writeContract({ address: CONTRACT_ADDRESS, abi: soulmintAbi, functionName: "recordSummon", args: [BigInt(selectedSoul.id)], account, chain: avalancheFuji }).catch(() => undefined);
+      if (CONTRACT_ADDRESS && selectedSoul.onchain) {
+        const connection = account && window.ethereum ? { wallet: createWalletClient({ chain: avalancheFuji, transport: custom(window.ethereum) }), address: account } : await connectWallet();
+        if (!connection) throw new Error("链上召唤需要连接钱包");
+        const hash = await connection.wallet.writeContract({ address: CONTRACT_ADDRESS, abi: soulmintAbi, functionName: "recordSummon", args: [BigInt(selectedSoul.id)], account: connection.address, chain: avalancheFuji });
+        toast.loading("正在记录本次链上召唤…", { id: "summon" });
+        await publicClient.waitForTransactionReceipt({ hash });
+        toast.success("召唤次数已写入 Fuji", { id: "summon" });
       }
+      const nextSoul = { ...selectedSoul, summons: selectedSoul.summons + 1 };
+      setSelectedSoul(nextSoul); setSouls((items) => items.map((item) => item.id === nextSoul.id ? nextSoul : item));
+      setMessages((items) => [...items, { role: "user", content: message }]); setChatInput("");
       const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ soul: { ...nextSoul, stage: stageFor(nextSoul.summons).name }, message, history: messages }) });
       const data = await response.json() as { reply?: string; error?: string };
       if (!response.ok) throw new Error(data.error || "召唤失败");
@@ -184,7 +237,7 @@ export default function Home() {
             <span className="text-xl font-black tracking-[-.04em]">SOULMINT</span>
           </button>
           <div className="flex items-center gap-3">
-            {!CONTRACT_ADDRESS && <span className="hidden rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1.5 text-xs font-semibold text-amber-200 sm:inline">演示模式</span>}
+            <span className={`hidden rounded-full border px-3 py-1.5 text-xs font-semibold sm:inline ${chainState === "live" ? "border-[#b9ff66]/25 bg-[#b9ff66]/10 text-[#b9ff66]" : chainState === "error" ? "border-red-300/25 bg-red-300/10 text-red-200" : "border-amber-300/20 bg-amber-300/10 text-amber-200"}`}>{chainState === "live" ? "Fuji 已连接" : chainState === "loading" ? "同步链上数据" : chainState === "error" ? "合约连接失败" : "演示模式"}</span>
             <button onClick={connectWallet} className="flex min-h-11 items-center gap-2 rounded-full border border-white/15 bg-white/[.04] px-4 text-sm font-semibold transition hover:border-[#b9ff66]/60 hover:bg-[#b9ff66]/10"><Wallet size={17} /> {account ? shortAddress(account) : "连接钱包"}</button>
           </div>
         </div>
@@ -243,6 +296,7 @@ export default function Home() {
               <div className="flex gap-5 text-sm text-white/42"><span><b className="mr-1 text-2xl text-white">{souls.length}</b> 已收录</span><span><b className="mr-1 text-2xl text-[#b9ff66]">{souls.reduce((total, soul) => total + soul.summons, 0)}</b> 次召唤</span></div>
             </div>
             <div className="mt-10 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+              {souls.length === 0 && <div className="col-span-full rounded-[1.6rem] border border-dashed border-white/15 bg-white/[.025] px-6 py-16 text-center"><Sparkles className="mx-auto text-[#b9ff66]" /><h3 className="mt-4 text-xl font-black">Fuji 上还没有灵魂</h3><p className="mt-2 text-sm text-white/42">返回铸魂台，成为这个合约的第一个人格。</p><button onClick={() => setTab("mint")} className="mt-5 rounded-xl bg-[#b9ff66] px-5 py-3 text-sm font-black text-[#10130d]">开始铸魂</button></div>}
               {souls.map((soul) => {
                 const palette = PALETTES[familyOf(soul.mbti)];
                 return <article key={`${soul.id}-${soul.name}`} className="group overflow-hidden rounded-[1.6rem] border border-white/12 bg-[#111316] transition hover:-translate-y-1 hover:border-white/30">

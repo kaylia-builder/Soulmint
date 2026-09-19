@@ -61,6 +61,7 @@ export type Soul = {
   transferCount: number;
   seed: number;
   mine?: boolean;
+  onchain?: boolean;
 };
 
 export const DEMO_SOULS: Soul[] = [
@@ -72,7 +73,10 @@ export const DEMO_SOULS: Soul[] = [
 
 export const soulmintAbi = [
   { type: "function", name: "MINT_PRICE", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "totalSupply", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "mint", stateMutability: "payable", inputs: [{ name: "mbti", type: "string" }, { name: "soulName", type: "string" }, { name: "catchphrase", type: "string" }, { name: "backstory", type: "string" }], outputs: [{ name: "tokenId", type: "uint256" }] },
   { type: "function", name: "recordSummon", stateMutability: "nonpayable", inputs: [{ name: "tokenId", type: "uint256" }], outputs: [{ name: "count", type: "uint64" }, { name: "stage", type: "uint8" }] },
   { type: "function", name: "ownerOf", stateMutability: "view", inputs: [{ name: "tokenId", type: "uint256" }], outputs: [{ name: "owner", type: "address" }] },
+  { type: "function", name: "soulOf", stateMutability: "view", inputs: [{ name: "tokenId", type: "uint256" }], outputs: [{ name: "soul", type: "tuple", components: [{ name: "mbti", type: "string" }, { name: "soulName", type: "string" }, { name: "catchphrase", type: "string" }, { name: "backstory", type: "string" }, { name: "summons", type: "uint64" }, { name: "bornAt", type: "uint64" }, { name: "transferCount", type: "uint32" }, { name: "seed", type: "uint256" }, { name: "previousOwner", type: "address" }] }] },
+  { type: "event", name: "SoulMinted", inputs: [{ name: "tokenId", type: "uint256", indexed: true }, { name: "owner", type: "address", indexed: true }, { name: "mbti", type: "string", indexed: false }, { name: "soulName", type: "string", indexed: false }, { name: "seed", type: "uint256", indexed: false }] },
 ] as const;
