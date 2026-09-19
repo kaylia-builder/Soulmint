@@ -1,0 +1,34 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "../vendor/shadcn-tailwind-4.13.0.css";
+
+:root {
+  --background: #08090b; --foreground: #f4f5f0; --card: #111316; --card-foreground: #f4f5f0;
+  --popover: #111316; --popover-foreground: #f4f5f0; --primary: #b9ff66; --primary-foreground: #10130d;
+  --secondary: #1b1e21; --secondary-foreground: #f4f5f0; --muted: #1b1e21; --muted-foreground: #9ca09a;
+  --accent: #56e0c5; --accent-foreground: #07120f; --destructive: #ff5f66; --border: #ffffff24;
+  --input: #ffffff24; --ring: #b9ff66; --radius: 1rem;
+}
+
+@theme inline {
+  --color-background: var(--background); --color-foreground: var(--foreground); --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground); --color-popover: var(--popover); --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary); --color-primary-foreground: var(--primary-foreground); --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground); --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent); --color-accent-foreground: var(--accent-foreground); --color-destructive: var(--destructive);
+  --color-border: var(--border); --color-input: var(--input); --color-ring: var(--ring); --radius-lg: var(--radius);
+  --font-sans: "Inter", "Noto Sans SC", Arial, sans-serif; --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+html { background: var(--background); scroll-behavior: smooth; }
+body { margin: 0; background: var(--background); color: var(--foreground); font-family: var(--font-sans); }
+button, input, select, textarea { font: inherit; }
+button, select { cursor: pointer; }
+::selection { background: #b9ff66; color: #10130d; }
+
+@media (prefers-reduced-motion: no-preference) {
+  svg ellipse { animation: orbit 18s linear infinite; transform-origin: 280px 302px; }
+  svg ellipse:nth-of-type(2n) { animation-direction: reverse; animation-duration: 24s; }
+  @keyframes orbit { to { rotate: 360deg; } }
+}
