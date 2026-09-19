@@ -20,6 +20,9 @@ declare global {
   }
 }
 
+type EIP6963ProviderInfo = { uuid: string; name: string; icon: string; rdns: string };
+type WalletOption = { info: EIP6963ProviderInfo; provider: EIP1193Provider };
+
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_SOULMINT_ADDRESS as `0x${string}` | undefined;
 const publicClient = createPublicClient({ chain: avalancheFuji, transport: http() });
 
@@ -102,11 +105,35 @@ export default function Home() {
   const [chatInput, setChatInput] = useState("");
   const [minting, setMinting] = useState(false);
   const [replying, setReplying] = useState(false);
+  const [walletOptions, setWalletOptions] = useState<WalletOption[]>([]);
+  const [activeWallet, setActiveWallet] = useState<WalletOption>();
+  const [walletPickerOpen, setWalletPickerOpen] = useState(false);
   const [chainState, setChainState] = useState<"demo" | "loading" | "live" | "error">(CONTRACT_ADDRESS ? "loading" : "demo");
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const seed = useMemo(() => [...`${form.mbti}${form.name}${form.catchphrase}`].reduce((sum, char, i) => sum + char.charCodeAt(0) * (i + 7), 0), [form]);
   const chosenType = MBTI_TYPES.find((item) => item.code === form.mbti) ?? MBTI_TYPES[0];
+
+  useEffect(() => {
+    const announce = (event: Event) => {
+      const detail = (event as CustomEvent<WalletOption>).detail;
+      if (!detail?.info?.uuid || !detail.provider?.request) return;
+      setWalletOptions((current) => current.some((item) => item.info.uuid === detail.info.uuid) ? current : [...current, detail]);
+    };
+    window.addEventListener("eip6963:announceProvider", announce);
+    window.dispatchEvent(new Event("eip6963:requestProvider"));
+    const fallbackTimer = window.setTimeout(() => {
+      if (!window.ethereum) return;
+      setWalletOptions((current) => current.some((item) => item.provider === window.ethereum) ? current : [...current, {
+        info: { uuid: "legacy-injected", name: "浏览器钱包", icon: "", rdns: "legacy.injected" },
+        provider: window.ethereum as EIP1193Provider,
+      }]);
+    }, 300);
+    return () => {
+      window.clearTimeout(fallbackTimer);
+      window.removeEventListener("eip6963:announceProvider", announce);
+    };
+  }, []);
 
   useEffect(() => {
     if (CONTRACT_ADDRESS) { void loadChainSouls(); return; }
@@ -136,17 +163,32 @@ export default function Home() {
     return () => lifecycle.abort();
   }, []);
 
-  async function connectWallet() {
-    if (!window.ethereum) { toast.error("未检测到 MetaMask，请先安装浏览器钱包"); return undefined; }
+  async function connectWallet(option?: WalletOption) {
+    let chosen = option ?? activeWallet;
+    if (!chosen && walletOptions.length > 1) {
+      setWalletPickerOpen(true);
+      return undefined;
+    }
+    if (!chosen && walletOptions.length === 1) chosen = walletOptions[0];
+    if (!chosen && window.ethereum) {
+      chosen = { info: { uuid: "legacy-injected", name: "浏览器钱包", icon: "", rdns: "legacy.injected" }, provider: window.ethereum };
+    }
+    if (!chosen) { toast.error("未检测到 Core 或其他浏览器钱包"); setWalletPickerOpen(true); return undefined; }
     try {
-      const wallet = createWalletClient({ chain: avalancheFuji, transport: custom(window.ethereum) });
+      const wallet = createWalletClient({ chain: avalancheFuji, transport: custom(chosen.provider) });
       const [address] = await wallet.requestAddresses();
       try { await wallet.switchChain({ id: avalancheFuji.id }); }
       catch { await wallet.addChain({ chain: avalancheFuji }); }
-      setAccount(address); toast.success("钱包已连接到 Avalanche Fuji");
+      setActiveWallet(chosen); setWalletPickerOpen(false); setAccount(address); toast.success(`${chosen.info.name} 已连接到 Avalanche Fuji`);
       if (CONTRACT_ADDRESS) void loadChainSouls(address);
-      return { wallet, address };
+      return { wallet, address, provider: chosen.provider };
     } catch { toast.error("钱包连接已取消"); return undefined; }
+  }
+
+  function connectedWallet() {
+    const provider = activeWallet?.provider ?? window.ethereum;
+    if (!account || !provider) return undefined;
+    return { wallet: createWalletClient({ chain: avalancheFuji, transport: custom(provider) }), address: account, provider };
   }
 
   async function loadChainSouls(activeAccount?: `0x${string}`) {
@@ -176,7 +218,7 @@ export default function Home() {
     if (!form.name.trim() || !form.catchphrase.trim() || !form.backstory.trim()) { toast.error("请完整填写人格名字、口头禅和背景故事"); return; }
     setMinting(true);
     try {
-      const connection = account && window.ethereum ? { wallet: createWalletClient({ chain: avalancheFuji, transport: custom(window.ethereum) }), address: account } : await connectWallet();
+      const connection = connectedWallet() ?? await connectWallet();
       if (!connection) return;
       if (CONTRACT_ADDRESS) {
         const hash = await connection.wallet.writeContract({ address: CONTRACT_ADDRESS, abi: soulmintAbi, functionName: "mint", args: [form.mbti, form.name, form.catchphrase, form.backstory], value: 10_000_000_000_000_000n, account: connection.address, chain: avalancheFuji });
@@ -209,7 +251,7 @@ export default function Home() {
     setReplying(true);
     try {
       if (CONTRACT_ADDRESS && selectedSoul.onchain) {
-        const connection = account && window.ethereum ? { wallet: createWalletClient({ chain: avalancheFuji, transport: custom(window.ethereum) }), address: account } : await connectWallet();
+        const connection = connectedWallet() ?? await connectWallet();
         if (!connection) throw new Error("链上召唤需要连接钱包");
         const hash = await connection.wallet.writeContract({ address: CONTRACT_ADDRESS, abi: soulmintAbi, functionName: "recordSummon", args: [BigInt(selectedSoul.id)], account: connection.address, chain: avalancheFuji });
         toast.loading("正在记录本次链上召唤…", { id: "summon" });
@@ -238,7 +280,7 @@ export default function Home() {
           </button>
           <div className="flex items-center gap-3">
             <span className={`hidden rounded-full border px-3 py-1.5 text-xs font-semibold sm:inline ${chainState === "live" ? "border-[#b9ff66]/25 bg-[#b9ff66]/10 text-[#b9ff66]" : chainState === "error" ? "border-red-300/25 bg-red-300/10 text-red-200" : "border-amber-300/20 bg-amber-300/10 text-amber-200"}`}>{chainState === "live" ? "Fuji 已连接" : chainState === "loading" ? "同步链上数据" : chainState === "error" ? "合约连接失败" : "演示模式"}</span>
-            <button onClick={connectWallet} className="flex min-h-11 items-center gap-2 rounded-full border border-white/15 bg-white/[.04] px-4 text-sm font-semibold transition hover:border-[#b9ff66]/60 hover:bg-[#b9ff66]/10"><Wallet size={17} /> {account ? shortAddress(account) : "连接钱包"}</button>
+            <button onClick={() => void connectWallet()} title={activeWallet?.info.name} className="flex min-h-11 items-center gap-2 rounded-full border border-white/15 bg-white/[.04] px-4 text-sm font-semibold transition hover:border-[#b9ff66]/60 hover:bg-[#b9ff66]/10"><Wallet size={17} /> {account ? shortAddress(account) : "连接钱包"}</button>
           </div>
         </div>
       </header>
@@ -312,6 +354,26 @@ export default function Home() {
           </section>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={walletPickerOpen} onOpenChange={setWalletPickerOpen}>
+        <DialogContent className="w-[min(460px,calc(100%-1.5rem))] rounded-[1.7rem] border-white/14 bg-[#0d0f11] text-white sm:max-w-[460px]">
+          <DialogHeader className="text-left">
+            <DialogTitle className="text-2xl font-black">选择钱包</DialogTitle>
+            <DialogDescription className="text-white/45">使用 Core 或其他 EVM 钱包连接 Avalanche Fuji 测试网。</DialogDescription>
+          </DialogHeader>
+          <div className="mt-2 grid gap-3">
+            {walletOptions.map((option) => {
+              const isCore = option.info.rdns === "app.core.extension";
+              return <button key={option.info.uuid} onClick={() => void connectWallet(option)} className="flex min-h-16 items-center justify-between rounded-2xl border border-white/12 bg-white/[.035] px-4 text-left transition hover:border-[#b9ff66]/60 hover:bg-[#b9ff66]/10">
+                <span className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-white/8 text-sm font-black text-[#b9ff66]">{option.info.name.slice(0, 1).toUpperCase()}</span><span><b className="block text-base">{option.info.name}</b><small className="text-white/38">{isCore ? "Avalanche 官方生态钱包" : "EVM 浏览器钱包"}</small></span></span>
+                {isCore && <span className="rounded-full bg-[#b9ff66]/12 px-2.5 py-1 text-xs font-bold text-[#b9ff66]">推荐</span>}
+              </button>;
+            })}
+            {walletOptions.length === 0 && <div className="rounded-2xl border border-dashed border-white/15 px-5 py-7 text-center"><p className="text-sm text-white/55">没有检测到浏览器钱包扩展。</p><a href="https://core.app/" target="_blank" rel="noreferrer" className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#b9ff66] px-4 text-sm font-black text-[#10130d]">安装 Core <ExternalLink size={15} /></a></div>}
+          </div>
+          <p className="text-xs leading-5 text-white/30">连接后会请求切换至 Fuji（Chain ID 43113）；所有签名仍需你在钱包中确认。</p>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={chatOpen} onOpenChange={setChatOpen}>
         <DialogContent className="max-h-[92vh] w-[min(1080px,calc(100%-1.5rem))] max-w-none overflow-hidden rounded-[1.7rem] border-white/14 bg-[#0d0f11] p-0 text-white sm:max-w-[1080px]">
