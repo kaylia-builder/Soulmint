@@ -20,10 +20,10 @@ export const MBTI_TYPES = [
 ] as const;
 
 export const PALETTES: Record<string, [string, string, string]> = {
-  NT: ["#B9FF66", "#56E0C5", "#17252B"],
-  NF: ["#FF7AC8", "#9C7CFF", "#241B38"],
-  SJ: ["#FFD166", "#FF8A5B", "#342318"],
-  SP: ["#66C7FF", "#3D7CFF", "#14243A"],
+  NT: ["#C4A7FF", "#8065E8", "#211A38"],
+  NF: ["#7EE2A8", "#35B878", "#132A22"],
+  SJ: ["#79C7FF", "#4388D6", "#14283D"],
+  SP: ["#FFD66B", "#F29D49", "#342719"],
 };
 
 export function familyOf(type: string) {

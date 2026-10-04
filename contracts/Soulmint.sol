@@ -482,10 +482,10 @@ contract Soulmint {
         bool intuitive = t[1] == bytes1("N");
         bool thinker = t[2] == bytes1("T");
         bool judging = t[3] == bytes1("J");
-        if (intuitive && thinker) return ("#B9FF66", "#56E0C5", "#17252B");
-        if (intuitive) return ("#FF7AC8", "#9C7CFF", "#241B38");
-        if (judging) return ("#FFD166", "#FF8A5B", "#342318");
-        return ("#66C7FF", "#3D7CFF", "#14243A");
+        if (intuitive && thinker) return ("#C4A7FF", "#8065E8", "#211A38");
+        if (intuitive) return ("#7EE2A8", "#35B878", "#132A22");
+        if (judging) return ("#79C7FF", "#4388D6", "#14283D");
+        return ("#FFD66B", "#F29D49", "#342719");
     }
 
     function _newSeed(uint256 tokenId, string calldata mbti, string calldata soulName) internal view returns (uint256) {
