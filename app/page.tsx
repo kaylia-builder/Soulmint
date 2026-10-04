@@ -35,6 +35,28 @@ function shortAddress(address?: string) {
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
 
+function PersonalityGlyph({ type, a, b }: { type: string; a: string; b: string }) {
+  const shared = { fill: "none", stroke: b, strokeWidth: 7, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  switch (type) {
+    case "INTJ": return <g {...shared}><path d="m230 226 18-55 32 32 32-32 18 55" /><path d="M246 220h68" /><circle cx="280" cy="184" r="7" fill={a} stroke="none" /></g>;
+    case "INTP": return <g {...shared}><path d="M240 184 280 162l40 22-40 22Z" /><path d="M240 184v42l40 23 40-23v-42M280 206v43" /><circle cx="280" cy="184" r="7" fill={a} stroke="none" /></g>;
+    case "ENTJ": return <g {...shared}><path d="m226 228 54-70 54 70-54-24Z" /><path d="m250 224 30-20 30 20" /><path d="M280 158v46" /></g>;
+    case "ENTP": return <g {...shared}><path d="m248 158-18 48 33-8-12 43 61-64-36 10 12-29" /><circle cx="224" cy="176" r="6" fill={a} stroke="none" /><circle cx="326" cy="220" r="6" fill={a} stroke="none" /></g>;
+    case "INFJ": return <g {...shared}><path d="M300 157a43 43 0 1 0 28 72 50 50 0 0 1-28-72Z" /><path d="M244 225q36-32 72 0-36 28-72 0Z" /><circle cx="280" cy="225" r="7" fill={a} stroke="none" /></g>;
+    case "INFP": return <g {...shared}><path d="M280 213c-42-14-42-55 0-42 14-42 55-42 42 0 42 14 42 55 0 42-14 42-55 42-42 0-42-14-42-55 0-42Z" /><circle cx="280" cy="192" r="12" fill={a} stroke="none" /></g>;
+    case "ENFJ": return <g {...shared}><circle cx="280" cy="195" r="27" /><path d="M280 151v-18M280 257v-18M236 195h-18M342 195h-18M249 164l-13-13M324 239l-13-13M311 164l13-13M236 239l13-13" /><circle cx="280" cy="195" r="9" fill={a} stroke="none" /></g>;
+    case "ENFP": return <g {...shared}><path d="m280 151 9 29 30-8-21 22 21 21-30-7-9 29-9-29-30 7 21-21-21-22 30 8Z" /><circle cx="230" cy="155" r="6" fill={a} stroke="none" /><circle cx="332" cy="232" r="6" fill={a} stroke="none" /></g>;
+    case "ISTJ": return <g {...shared}><path d="M235 229h90M245 221v-52h70v52M260 169v52M280 169v52M300 169v52" /><path d="m238 169 42-22 42 22" /></g>;
+    case "ISFJ": return <g {...shared}><path d="M280 151 326 169v34c0 28-19 46-46 57-27-11-46-29-46-57v-34Z" /><path d="M280 226s-31-17-31-36c0-17 21-22 31-8 10-14 31-9 31 8 0 19-31 36-31 36Z" /></g>;
+    case "ESTJ": return <g {...shared}><rect x="232" y="157" width="96" height="78" rx="8" /><path d="M264 157v78M296 157v78M232 183h96M232 209h96" /><path d="m250 196 12 12 25-28" /></g>;
+    case "ESFJ": return <g {...shared}><circle cx="280" cy="193" r="18" /><circle cx="230" cy="177" r="12" /><circle cx="330" cy="177" r="12" /><circle cx="247" cy="229" r="12" /><circle cx="313" cy="229" r="12" /><path d="m242 181 20 7M298 188l20-7M258 218l12-12M302 218l-12-12" /></g>;
+    case "ISTP": return <g {...shared}><path d="m236 158 88 78M324 158l-88 78" /><path d="m230 151 22 6-16 17ZM330 151l-22 6 16 17Z" /><circle cx="280" cy="197" r="13" fill={a} /></g>;
+    case "ISFP": return <g {...shared}><path d="M280 242c-10-48 4-80 45-94 7 45-8 76-45 94Z" /><path d="M280 242c-5-38-21-59-52-66-1 36 15 58 52 66ZM280 242l28-62" /></g>;
+    case "ESTP": return <g {...shared}><path d="M220 177h64l-24 24h78M220 218h86" /><path d="m314 164 26 37-26 37" /><circle cx="240" cy="201" r="8" fill={a} stroke="none" /></g>;
+    default: return <g {...shared}><path d="m280 149 13 34 37 2-29 23 10 36-31-20-31 20 10-36-29-23 37-2Z" /><path d="M222 158v78M338 158v78M222 176l-18 25 18 25M338 176l18 25-18 25" /></g>;
+  }
+}
+
 function SoulArt({ type, name, seed, id, summons = 0, compact = false }: { type: string; name: string; seed: number; id?: number; summons?: number; compact?: boolean }) {
   const [a, b, ink] = PALETTES[familyOf(type)];
   const rings = Array.from({ length: 6 }, (_, i) => 66 + ((seed * (i + 3)) % 54));
@@ -42,7 +64,6 @@ function SoulArt({ type, name, seed, id, summons = 0, compact = false }: { type:
   const extrovert = type[0] === "E";
   const intuitive = type[1] === "N";
   const thinker = type[2] === "T";
-  const judging = type[3] === "J";
   return (
     <svg viewBox="0 0 560 680" role="img" aria-label={`${type} 人格图腾`} className="h-full w-full">
       <defs>
@@ -60,9 +81,7 @@ function SoulArt({ type, name, seed, id, summons = 0, compact = false }: { type:
         {extrovert
           ? <path d="M280 142V104M164 190l-29-28M396 190l29-28M142 302h-40M418 302h40" stroke={a} strokeWidth="6" />
           : <circle cx="280" cy="302" r="174" fill="none" stroke={a} strokeWidth="3" strokeDasharray="7 13" />}
-        {judging
-          ? <path d="m218 224 20-52 42 38 42-38 20 52" fill="none" stroke={b} strokeWidth="8" />
-          : <g fill={b}><circle cx="206" cy="220" r="8" /><circle cx="280" cy="178" r="8" /><circle cx="354" cy="220" r="8" /></g>}
+        <PersonalityGlyph type={type} a={a} b={b} />
         {intuitive
           ? <path d="M280 190 374 258 338 386 280 430 222 386 186 258Z" fill="#090c0d" stroke={a} strokeWidth="6" />
           : <path d="M280 188c72 0 116 49 106 126-8 67-50 116-106 116s-98-49-106-116c-10-77 34-126 106-126Z" fill="#090c0d" stroke={a} strokeWidth="6" />}

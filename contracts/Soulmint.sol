@@ -318,7 +318,6 @@ contract Soulmint {
         bool extrovert = t[0] == bytes1("E");
         bool intuitive = t[1] == bytes1("N");
         bool thinker = t[2] == bytes1("T");
-        bool judging = t[3] == bytes1("J");
 
         string memory head = intuitive
             ? '<path d="M280 190 374 258 338 386 280 430 222 386 186 258Z"'
@@ -330,15 +329,6 @@ contract Soulmint {
             : string.concat(
                 '<circle cx="238" cy="312" r="15" fill="', a, '"/><circle cx="322" cy="312" r="15" fill="', a, '"/>'
             );
-        string memory crown = judging
-            ? string.concat(
-                '<path d="m218 224 20-52 42 38 42-38 20 52" fill="none" stroke="', b, '" stroke-width="8"/>'
-            )
-            : string.concat(
-                    '<g fill="',
-                    b,
-                    '"><circle cx="206" cy="220" r="8"/><circle cx="280" cy="178" r="8"/><circle cx="354" cy="220" r="8"/></g>'
-                );
         string memory aura = extrovert
             ? string.concat(
                 '<path d="M280 142V104M164 190l-29-28M396 190l29-28M142 302h-40M418 302h40" stroke="',
@@ -354,7 +344,7 @@ contract Soulmint {
         return string.concat(
             "<g>",
             aura,
-            crown,
+            _sigil(mbti, a, b),
             head,
             ' fill="#090c0d" stroke="',
             a,
@@ -364,6 +354,126 @@ contract Soulmint {
             b,
             '" stroke-width="7"/>',
             '<circle cx="280" cy="302" r="9" fill="#fff" opacity=".88"/></g>'
+        );
+    }
+
+    function _sigil(string memory mbti, string memory a, string memory b) internal pure returns (string memory) {
+        bytes32 kind = keccak256(bytes(mbti));
+        string memory open = string.concat(
+            '<g fill="none" stroke="', b, '" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">'
+        );
+        if (kind == keccak256("INTJ")) {
+            return string.concat(
+                open,
+                '<path d="m230 226 18-55 32 32 32-32 18 55M246 220h68"/><circle cx="280" cy="184" r="7" fill="',
+                a,
+                '" stroke="none"/></g>'
+            );
+        }
+        if (kind == keccak256("INTP")) {
+            return string.concat(
+                open,
+                '<path d="M240 184 280 162l40 22-40 22ZM240 184v42l40 23 40-23v-42M280 206v43"/><circle cx="280" cy="184" r="7" fill="',
+                a,
+                '" stroke="none"/></g>'
+            );
+        }
+        if (kind == keccak256("ENTJ")) {
+            return string.concat(open, '<path d="m226 228 54-70 54 70-54-24Zm24-4 30-20 30 20M280 158v46"/></g>');
+        }
+        if (kind == keccak256("ENTP")) {
+            return string.concat(
+                open,
+                '<path d="m248 158-18 48 33-8-12 43 61-64-36 10 12-29"/><circle cx="224" cy="176" r="6" fill="',
+                a,
+                '" stroke="none"/><circle cx="326" cy="220" r="6" fill="',
+                a,
+                '" stroke="none"/></g>'
+            );
+        }
+        if (kind == keccak256("INFJ")) {
+            return string.concat(
+                open,
+                '<path d="M300 157a43 43 0 1 0 28 72 50 50 0 0 1-28-72ZM244 225q36-32 72 0-36 28-72 0Z"/><circle cx="280" cy="225" r="7" fill="',
+                a,
+                '" stroke="none"/></g>'
+            );
+        }
+        if (kind == keccak256("INFP")) {
+            return string.concat(
+                open,
+                '<path d="M280 213c-42-14-42-55 0-42 14-42 55-42 42 0 42 14 42 55 0 42-14 42-55 42-42 0-42-14-42-55 0-42Z"/><circle cx="280" cy="192" r="12" fill="',
+                a,
+                '" stroke="none"/></g>'
+            );
+        }
+        if (kind == keccak256("ENFJ")) {
+            return string.concat(
+                open,
+                '<circle cx="280" cy="195" r="27"/><path d="M280 151v-18M280 257v-18M236 195h-18M342 195h-18M249 164l-13-13M324 239l-13-13M311 164l13-13M236 239l13-13"/><circle cx="280" cy="195" r="9" fill="',
+                a,
+                '" stroke="none"/></g>'
+            );
+        }
+        if (kind == keccak256("ENFP")) {
+            return string.concat(
+                open,
+                '<path d="m280 151 9 29 30-8-21 22 21 21-30-7-9 29-9-29-30 7 21-21-21-22 30 8Z"/><circle cx="230" cy="155" r="6" fill="',
+                a,
+                '" stroke="none"/><circle cx="332" cy="232" r="6" fill="',
+                a,
+                '" stroke="none"/></g>'
+            );
+        }
+        if (kind == keccak256("ISTJ")) {
+            return string.concat(
+                open,
+                '<path d="M235 229h90M245 221v-52h70v52M260 169v52M280 169v52M300 169v52m-62-52 42-22 42 22"/></g>'
+            );
+        }
+        if (kind == keccak256("ISFJ")) {
+            return string.concat(
+                open,
+                '<path d="M280 151 326 169v34c0 28-19 46-46 57-27-11-46-29-46-57v-34Zm0 75s-31-17-31-36c0-17 21-22 31-8 10-14 31-9 31 8 0 19-31 36-31 36Z"/></g>'
+            );
+        }
+        if (kind == keccak256("ESTJ")) {
+            return string.concat(
+                open,
+                '<rect x="232" y="157" width="96" height="78" rx="8"/><path d="M264 157v78M296 157v78M232 183h96M232 209h96m-78-13 12 12 25-28"/></g>'
+            );
+        }
+        if (kind == keccak256("ESFJ")) {
+            return string.concat(
+                open,
+                '<circle cx="280" cy="193" r="18"/><circle cx="230" cy="177" r="12"/><circle cx="330" cy="177" r="12"/><circle cx="247" cy="229" r="12"/><circle cx="313" cy="229" r="12"/><path d="m242 181 20 7M298 188l20-7M258 218l12-12M302 218l-12-12"/></g>'
+            );
+        }
+        if (kind == keccak256("ISTP")) {
+            return string.concat(
+                open,
+                '<path d="m236 158 88 78M324 158l-88 78m-6-85 22 6-16 17Zm100 0-22 6 16 17Z"/><circle cx="280" cy="197" r="13" fill="',
+                a,
+                '"/></g>'
+            );
+        }
+        if (kind == keccak256("ISFP")) {
+            return string.concat(
+                open,
+                '<path d="M280 242c-10-48 4-80 45-94 7 45-8 76-45 94Zm0 0c-5-38-21-59-52-66-1 36 15 58 52 66Zm0 0 28-62"/></g>'
+            );
+        }
+        if (kind == keccak256("ESTP")) {
+            return string.concat(
+                open,
+                '<path d="M220 177h64l-24 24h78M220 218h86m8-54 26 37-26 37"/><circle cx="240" cy="201" r="8" fill="',
+                a,
+                '" stroke="none"/></g>'
+            );
+        }
+        return string.concat(
+            open,
+            '<path d="m280 149 13 34 37 2-29 23 10 36-31-20-31 20 10-36-29-23 37-2ZM222 158v78M338 158v78M222 176l-18 25 18 25M338 176l18 25-18 25"/></g>'
         );
     }
 
