@@ -14,6 +14,7 @@
     "test:contract": "forge test -vv",
     "coverage:contract": "forge coverage --report summary",
     "check": "npm run lint && npm run build && forge test -vv",
+    "deploy:fuji": "forge script script/Deploy.s.sol:Deploy --rpc-url fuji --broadcast --verify",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {

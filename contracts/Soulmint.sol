@@ -79,6 +79,10 @@ contract Soulmint {
     event ApprovalForAll(address indexed owner, address indexed operator, bool approved);
     event SoulMinted(uint256 indexed tokenId, address indexed owner, string mbti, string soulName, uint256 seed);
     event SoulSummoned(uint256 indexed tokenId, address indexed summoner, uint64 totalSummons, uint8 stage);
+    /// @dev ERC-4906: emitted whenever tokenURI(tokenId) may return different metadata.
+    event MetadataUpdate(uint256 _tokenId);
+    /// @dev ERC-4906: reserved for future batch metadata refreshes.
+    event BatchMetadataUpdate(uint256 _fromTokenId, uint256 _toTokenId);
     event OwnerChanged(
         uint256 indexed tokenId, address indexed previousOwner, address indexed newOwner, uint32 transferCount
     );
@@ -95,7 +99,8 @@ contract Soulmint {
     }
 
     function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
-        return interfaceId == 0x01ffc9a7 || interfaceId == 0x80ac58cd || interfaceId == 0x5b5e139f;
+        return interfaceId == 0x01ffc9a7 || interfaceId == 0x80ac58cd || interfaceId == 0x5b5e139f
+            || interfaceId == 0x49064906;
     }
 
     function ownerOf(uint256 tokenId) public view returns (address owner) {
@@ -148,6 +153,7 @@ contract Soulmint {
         count = ++soul.summons;
         stage = growthStage(count);
         emit SoulSummoned(tokenId, msg.sender, count, stage);
+        emit MetadataUpdate(tokenId);
     }
 
     function growthStage(uint64 summons) public pure returns (uint8) {
@@ -194,6 +200,7 @@ contract Soulmint {
         soul.transferCount++;
         emit Transfer(from, to, tokenId);
         emit OwnerChanged(tokenId, from, to, soul.transferCount);
+        emit MetadataUpdate(tokenId);
     }
 
     function safeTransferFrom(address from, address to, uint256 tokenId) external {

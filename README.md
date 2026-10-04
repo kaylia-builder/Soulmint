@@ -47,8 +47,11 @@ npm run coverage:contract
 forge test
 export FUJI_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc
 export DEPLOYER_PRIVATE_KEY=0x...
-forge script script/Deploy.s.sol:Deploy --rpc-url fuji --private-key "$DEPLOYER_PRIVATE_KEY" --broadcast
+export SNOWTRACE_API_KEY=...
+npm run deploy:fuji
 ```
+
+`deploy:fuji` 只会部署到 `foundry.toml` 中配置的 Avalanche Fuji（chain ID 43113），并使用 `SNOWTRACE_API_KEY` 自动提交源码验证。部署私钥由脚本从 `DEPLOYER_PRIVATE_KEY` 环境变量读取，不需要放在命令行参数中。
 
 把部署出的地址写入 `.env.local`：
 
@@ -56,7 +59,7 @@ forge script script/Deploy.s.sol:Deploy --rpc-url fuji --private-key "$DEPLOYER_
 NEXT_PUBLIC_SOULMINT_ADDRESS=0x...
 ```
 
-然后重新构建前端。合约的 `recordSummon(tokenId)` 是公开入口，因此任何钱包都能为一次召唤写入成长记录；`transferFrom` / `safeTransferFrom` 会记录上一持有者与累计易主次数。
+然后重新构建前端。合约的 `recordSummon(tokenId)` 是公开入口，因此任何钱包都能为一次召唤写入成长记录；`transferFrom` / `safeTransferFrom` 会记录上一持有者与累计易主次数。召唤和转手都会发出 ERC-4906 `MetadataUpdate`，便于钱包与 NFT 浏览器刷新成长阶段和易主属性。
 
 部署前确认：部署钱包在 Fuji 上有测试 AVAX、`FUJI_RPC_URL` 可访问，并妥善保存部署钱包；该地址是合约收入的唯一提现地址。不要提交 `.env.local` 或私钥。
 

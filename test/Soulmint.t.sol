@@ -7,9 +7,12 @@ interface Vm {
     function deal(address who, uint256 newBalance) external;
     function prank(address sender) external;
     function expectRevert(bytes4 revertData) external;
+    function expectEmit(bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData) external;
 }
 
 contract SoulmintTest {
+    event MetadataUpdate(uint256 _tokenId);
+
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
     Soulmint private soulmint;
     Receiver private receiver;
@@ -108,6 +111,13 @@ contract SoulmintTest {
         require(soul.summons == 10 && soulmint.growthStage(soul.summons) == 2, "summon state");
     }
 
+    function testSummonEmitsMetadataUpdate() public {
+        uint256 id = _mintAs(ALICE, "INFJ", "Sage", "Listen", "Story");
+        vm.expectEmit(true, false, false, false);
+        emit MetadataUpdate(id);
+        soulmint.recordSummon(id);
+    }
+
     function testFuzzGrowthStage(uint64 summons) public view {
         uint8 stage = soulmint.growthStage(summons);
         if (summons >= 100) require(stage == 4, "legend");
@@ -134,6 +144,14 @@ contract SoulmintTest {
         require(soulmint.getApproved(id) == address(0), "approval not cleared");
     }
 
+    function testTransferEmitsMetadataUpdate() public {
+        uint256 id = _mintAs(ALICE, "ENFP", "Nova", "Hello", "Story");
+        vm.expectEmit(true, false, false, false);
+        emit MetadataUpdate(id);
+        vm.prank(ALICE);
+        soulmint.transferFrom(ALICE, BOB, id);
+    }
+
     function testUnsafeReceiverRevertsWholeTransfer() public {
         uint256 id = _mintAs(ALICE, "ISTP", "Tool", "Try it", "Story");
         vm.prank(ALICE);
@@ -155,6 +173,7 @@ contract SoulmintTest {
     function testInterfaceAndWithdrawPermissions() public {
         require(soulmint.supportsInterface(0x80ac58cd), "erc721");
         require(soulmint.supportsInterface(0x5b5e139f), "metadata");
+        require(soulmint.supportsInterface(0x49064906), "erc4906");
         _mintAs(ALICE, "ISFJ", "Guard", "Here", "Story");
 
         vm.prank(BOB);
